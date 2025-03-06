@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
+import UserService from '../service/auth.service';
 
 function Signup() {
   const [email, setEmail] = useState('');
@@ -12,34 +13,46 @@ function Signup() {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
-    
+
     if (!email || !password || !confirmPassword || !name) {
       setError('All fields are required');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-    
+
     setLoading(true);
-    
-    setTimeout(() => {
-      localStorage.setItem('signupData', JSON.stringify({ name, email, password }));
-      setMessage('Verification code sent! Please check your email.');
+
+    try {
+      // Send email as part of the registration data
+      const response = await UserService.register({ 
+        firstName: name, 
+        email, 
+        password 
+      });
+      setMessage(response.message); // Assuming the API returns a message
+
+      // Navigate to the verification page with email as a search parameter
+      setTimeout(() => {
+        navigate(`/otp-verification?email=${encodeURIComponent(email)}`);
+      }, 1500);
+    } catch (error) {
+      setError(error.message || 'Registration failed. Please try again.');
+    } finally {
       setLoading(false);
-      setTimeout(() => navigate('/verify'), 1500);
-    }, 2000);
+    }
   };
 
   return (

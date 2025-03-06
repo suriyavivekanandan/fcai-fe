@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound } from 'lucide-react';
+import UserService from '../service/auth.service';
 
 function OtpVerification() {
   const [otp, setOtp] = useState('');
-  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -12,26 +12,11 @@ function OtpVerification() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const storedEmail = localStorage.getItem('signupEmail');
-    
-    if (location.state && location.state.email) {
-      setEmail(location.state.email);
-      setMessage('Verification code has been sent. Please check your inbox and spam folder.');
-    } else if (storedEmail) {
-      setEmail(storedEmail);
-      setMessage('Please enter the verification code sent to your email.');
-    } else {
-      navigate('/signup');
-    }
+  // Extract email from query parameters
+  const queryParams = new URLSearchParams(location.search);
+  const email = queryParams.get('email');
 
-    if (cooldown > 0) {
-      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [location, navigate, cooldown]);
-
-  const handleVerify = (e) => {
+  const handleVerify = async (e) => {
     e.preventDefault();
     if (!email || !otp) {
       setError('Email and verification code are required');
@@ -39,23 +24,46 @@ function OtpVerification() {
     }
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      setMessage('Account verified successfully! Redirecting to login...');
-      localStorage.removeItem('signupEmail');
-      setTimeout(() => navigate('/login'), 2000);
+
+    try {
+      const response = await UserService.verifyOtp({ email, otp });
+      setMessage(response.message); // Assuming the API returns a message
+      setTimeout(() => {
+        localStorage.removeItem('signupEmail');
+        navigate('/login');
+      }, 2000);
+    } catch (error) {
+      setError(error.message || 'Verification failed. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (cooldown > 0) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // Call the resend OTP API (you may need to implement this in UserService)
+      await UserService.resendOtp({ email });
       setMessage('Verification code resent! Please check your inbox and spam folder.');
       setCooldown(60);
+    } catch (error) {
+      setError(error.message || 'Failed to resend OTP. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
+
+  useEffect(() => {
+    // Cooldown timer for resend OTP
+    let timer;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -74,12 +82,15 @@ function OtpVerification() {
           {message && <div className="mb-4 text-green-700">{message}</div>}
           <form className="space-y-6" onSubmit={handleVerify}>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" value={email} readOnly className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700">Verification Code</label>
-              <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Enter 6-digit code" />
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+                placeholder="Enter 6-digit code"
+                required
+              />
             </div>
             <button type="submit" disabled={loading} className="w-full py-2 bg-green-600 text-white rounded">
               {loading ? 'Verifying...' : 'Verify'}
