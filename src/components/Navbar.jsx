@@ -1,59 +1,47 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Home, LogIn, UserPlus, KeyRound, ShieldCheck } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { LogOut } from 'lucide-react'; // Import logout icon
 
-const Navbar = () => {
+function Navbar() {
+  const { isAuthenticated, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const hideNavbarRoutes = ['/login', '/signup', '/otp-verification'];
+
+  if (hideNavbarRoutes.includes(location.pathname)) return null;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/'); // Redirect to home after logout
+  };
+
   return (
-    <nav className="bg-white shadow-md py-4 px-6">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center text-blue-600 hover:text-blue-800">
-            <Home className="h-5 w-5 mr-2" />
-            <span className="font-semibold text-lg">FoodWaste</span>
-          </Link>
-        </div>
-        
-        <ul className="flex space-x-6">
-          <li>
-            <Link 
-              to="/signup" 
-              className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
+    <nav className="bg-green-600 p-4 shadow-md text-white flex justify-between">
+      <div className="text-2xl font-bold">Food Waste Management</div>
+      <div className="flex items-center">
+        <Link to="/" className="px-4">Home</Link>
+        {!isAuthenticated ? (
+          <Link to="/login" className="px-4">Login</Link>
+        ) : (
+          <>
+            <Link to="/initial-entry" className="px-4">Initial Entry</Link>
+            <Link to="/remaining-entry" className="px-4">Remaining Entry</Link>
+            <Link to="/data-view" className="px-4">Data View</Link>
+            <Link to="/food-analysis" className="px-4">Food Analysis</Link>
+            <Link to="/bookings" className="px-4">Bookings</Link>
+            <button 
+              onClick={handleLogout} 
+              className="ml-4 p-2 bg-red-500 rounded-full hover:bg-red-600 transition duration-200"
             >
-              <UserPlus className="h-4 w-4 mr-1" />
-              <span>Signup</span>
-            </Link>
-          </li>
-          <li>
-            <Link 
-              to="/login" 
-              className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              <LogIn className="h-4 w-4 mr-1" />
-              <span>Login</span>
-            </Link>
-          </li>
-          <li>
-            <Link 
-              to="/password-reset" 
-              className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              <KeyRound className="h-4 w-4 mr-1" />
-              <span>Reset Password</span>
-            </Link>
-          </li>
-          <li>
-            <Link 
-              to="/otp-verification" 
-              className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              <ShieldCheck className="h-4 w-4 mr-1" />
-              <span>OTP Verification</span>
-            </Link>
-          </li>
-        </ul>
+              <LogOut className="h-5 w-5 text-white" /> {/* Logout icon */}
+            </button>
+          </>
+        )}
       </div>
     </nav>
   );
-};
+}
 
 export default Navbar;

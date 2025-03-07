@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BarChart, PieChart as PieChartIcon, ArrowUpDown, Download, Calendar } from 'lucide-react';
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays } from 'date-fns';
+import axios from 'axios';
 
 // Utility functions
 const getConsumptionCategory = (wastePercentage) => {
@@ -34,67 +35,6 @@ const getRecommendations = (foodItem, wastePercentage) => {
     ];
   }
 };
-
-// Sample data for testing
-const sampleData = [
-  {
-    food_item: "Pasta Primavera",
-    initial_weight: 12.5,
-    remaining_weight: 3.1,
-    date: "2025-03-06"
-  },
-  {
-    food_item: "Grilled Chicken",
-    initial_weight: 15.2,
-    remaining_weight: 1.2,
-    date: "2025-03-06"
-  },
-  {
-    food_item: "Caesar Salad",
-    initial_weight: 8.7,
-    remaining_weight: 2.8,
-    date: "2025-03-06"
-  },
-  {
-    food_item: "Tomato Soup",
-    initial_weight: 10.0,
-    remaining_weight: 3.5,
-    date: "2025-03-06"
-  },
-  {
-    food_item: "Chocolate Cake",
-    initial_weight: 5.3,
-    remaining_weight: 0.4,
-    date: "2025-03-06"
-  }
-];
-
-const previousDaySampleData = [
-  {
-    food_item: "Pasta Primavera",
-    initial_weight: 12.0,
-    remaining_weight: 3.5,
-    date: "2025-03-05"
-  },
-  {
-    food_item: "Grilled Chicken",
-    initial_weight: 14.8,
-    remaining_weight: 1.5,
-    date: "2025-03-05"
-  },
-  {
-    food_item: "Caesar Salad",
-    initial_weight: 8.5,
-    remaining_weight: 3.2,
-    date: "2025-03-05"
-  },
-  {
-    food_item: "Tomato Soup",
-    initial_weight: 9.8,
-    remaining_weight: 3.0,
-    date: "2025-03-05"
-  }
-];
 
 // Sub-components
 const FoodItemCard = ({ item }) => {
@@ -196,29 +136,42 @@ function FoodAnalysis() {
     direction: 'desc'
   });
 
-  // Fetch data on component mount and date change
+  // Fetch current date data
   useEffect(() => {
     fetchAnalysis();
     fetchPreviousData();
   }, [selectedDate]);
 
-  const fetchAnalysis = () => {
-    // Simulate API call with timeout
-    setTimeout(() => {
-      // Filter sample data for the selected date
-      const filteredData = sampleData.filter(item => item.date === selectedDate);
-      const processedData = processEntries(filteredData);
+  const fetchAnalysis = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:5000/api/v1/food-entry?date=${selectedDate}`);
+      
+      if (!response.data) throw new Error('No data received');
+
+      // Process and aggregate data
+      const processedData = processEntries(response.data);
       setAnalysis(processedData);
+    } catch (error) {
+      console.error('Error fetching analysis:', error);
+      alert('Error loading analysis. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
-  const fetchPreviousData = () => {
-    // Simulate API call for previous day data
-    const previousDate = format(subDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
-    const filteredData = previousDaySampleData.filter(item => item.date === previousDate);
-    const processedData = processEntries(filteredData);
-    setPreviousData(processedData);
+  const fetchPreviousData = async () => {
+    try {
+      const previousDate = format(subDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
+      const response = await axios.get(`http://localhost:5000/api/v1/food-entry?date=${previousDate}`);
+      
+      if (!response.data) throw new Error('No data received');
+      
+      const processedData = processEntries(response.data);
+      setPreviousData(processedData);
+    } catch (error) {
+      console.error('Error fetching previous data:', error);
+    }
   };
 
   const processEntries = (entries) => {
@@ -364,7 +317,7 @@ function FoodAnalysis() {
                   <PieChartIcon className="h-6 w-6 text-blue-600 mr-2" />
                   <h2 className="text-lg font-semibold text-gray-800">Daily Waste Distribution</h2>
                 </div>
-                <div className="flex justify-center items-center h-64">
+                <div className="flex justify-center items-center h-[300px]">
                   {pieChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -404,7 +357,7 @@ function FoodAnalysis() {
                     Sort by Waste
                   </button>
                 </div>
-                <div className="space-y-4 overflow-y-auto max-h-64 pr-2">
+                <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2">
                   {sortedAnalysis.length > 0 ? (
                     sortedAnalysis.map((item, index) => (
                       <FoodItemCard key={index} item={item} />

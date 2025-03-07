@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
 import UserService from '../service/auth.service';
 
 function Signup() {
@@ -10,13 +9,11 @@ function Signup() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setMessage('');
 
     if (!email || !password || !confirmPassword || !name) {
       setError('All fields are required');
@@ -36,50 +33,36 @@ function Signup() {
     setLoading(true);
 
     try {
-      // Send email as part of the registration data
-      const response = await UserService.register({ 
-        firstName: name, 
-        email, 
-        password 
-      });
-      setMessage(response.message); // Assuming the API returns a message
+      const response = await UserService.register({ firstName: name, email, password });
+      console.log("✅ Signup Response:", response);
 
-      // Navigate to the verification page with email as a search parameter
-      setTimeout(() => {
+      if (response.success) {
         navigate(`/otp-verification?email=${encodeURIComponent(email)}`);
-      }, 1500);
+      } else {
+        setError(response.message || 'Registration failed.');
+      }
     } catch (error) {
-      setError(error.message || 'Registration failed. Please try again.');
+      setError(error.message || 'Error registering.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center">
-            <UserPlus className="h-8 w-8 text-white" />
-          </div>
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create your account</h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or <Link to="/login" className="font-medium text-green-600 hover:text-green-500">sign in</Link>
+    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100">
+      <div className="bg-white shadow-lg rounded-lg p-6 w-96">
+        <h2 className="text-3xl font-bold mb-4 text-center">Create Account</h2>
+        {error && <p className="text-red-500">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-2 border rounded" />
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full p-2 border rounded" />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full p-2 border rounded" />
+          <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="w-full p-2 border rounded" />
+          <button type="submit" disabled={loading} className="w-full p-2 bg-green-500 text-white rounded">{loading ? 'Processing...' : 'Sign Up'}</button>
+        </form>
+        <p className="text-center mt-4">
+          Already have an account? <Link to="/login" className="text-blue-500">Login</Link>
         </p>
-      </div>
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 px-4 py-3 rounded">{error}</div>}
-          {message && <div className="mb-4 text-green-700 bg-green-50 border border-green-200 px-4 py-3 rounded">{message}</div>}
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded" required />
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded" required />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded" required />
-            <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full px-3 py-2 border rounded" required />
-            <button type="submit" disabled={loading} className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700">{loading ? 'Processing...' : 'Continue'}</button>
-          </form>
-        </div>
       </div>
     </div>
   );

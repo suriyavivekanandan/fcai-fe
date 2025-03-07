@@ -1,13 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Calendar, AlertCircle } from 'lucide-react';
+import bookingService from '../service/bookingService';
 
 function Bookings() {
-  const [availableFood, setAvailableFood] = useState([
-    { id: 1, food_item: 'Rice', remaining_weight: 5, date: new Date(), meal_type: 'Lunch' },
-    { id: 2, food_item: 'Dal', remaining_weight: 3, date: new Date(), meal_type: 'Dinner' },
-  ]);
-
+  const [availableFood, setAvailableFood] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [formData, setFormData] = useState({
@@ -16,21 +13,49 @@ function Bookings() {
     trust_name: '',
   });
 
-  const handleBooking = (e) => {
+  useEffect(() => {
+    async function loadFood() {
+      try {
+        const foodData = await bookingService.getAvailableFood();
+        if (foodData) {
+          setAvailableFood(foodData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch available food:', error);
+      }
+    }
+    loadFood();
+  }, []);
+
+  const handleBooking = async (e) => {
     e.preventDefault();
-    if (!selectedEntry) return;
+    if (!selectedEntry) {
+      alert('Please select a food item.');
+      return;
+    }
 
     const newBooking = {
-      id: bookings.length + 1,
       food_entry: selectedEntry,
+      person_name: formData.person_name,
+      contact_number: formData.contact_number,
       trust_name: formData.trust_name,
       booking_date: new Date(),
     };
 
-    setBookings([...bookings, newBooking]);
-    setSelectedEntry(null);
-    setFormData({ person_name: '', contact_number: '', trust_name: '' });
-    alert('Booking created successfully!');
+    try {
+      const response = await bookingService.createBooking(newBooking);
+      if (response && response.success) {
+        setBookings([...bookings, response.booking]);
+        setSelectedEntry(null);
+        setFormData({ person_name: '', contact_number: '', trust_name: '' });
+        alert('Booking created successfully!');
+      } else {
+        alert('Failed to create booking.');
+      }
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      alert('An error occurred while creating the booking.');
+    }
   };
 
   return (
@@ -53,9 +78,9 @@ function Bookings() {
             <div className="grid gap-4">
               {availableFood.map((entry) => (
                 <div
-                  key={entry.id}
+                  key={entry._id} // Ensure MongoDB _id is used correctly
                   className={`bg-white rounded-lg shadow-md p-6 cursor-pointer transition-colors ${
-                    selectedEntry?.id === entry.id ? 'ring-2 ring-blue-500' : 'hover:bg-gray-50'
+                    selectedEntry?._id === entry._id ? 'ring-2 ring-blue-500' : 'hover:bg-gray-50'
                   }`}
                   onClick={() => setSelectedEntry(entry)}
                 >
@@ -84,7 +109,7 @@ function Bookings() {
                   required
                   value={formData.person_name}
                   onChange={(e) => setFormData({ ...formData, person_name: e.target.value })}
-                  className="w-full rounded-md border-gray-300 shadow-sm"
+                  className="w-full rounded-md border-gray-300 shadow-sm p-2"
                 />
                 <input
                   type="tel"
@@ -92,7 +117,7 @@ function Bookings() {
                   required
                   value={formData.contact_number}
                   onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                  className="w-full rounded-md border-gray-300 shadow-sm"
+                  className="w-full rounded-md border-gray-300 shadow-sm p-2"
                 />
                 <input
                   type="text"
@@ -100,7 +125,7 @@ function Bookings() {
                   required
                   value={formData.trust_name}
                   onChange={(e) => setFormData({ ...formData, trust_name: e.target.value })}
-                  className="w-full rounded-md border-gray-300 shadow-sm"
+                  className="w-full rounded-md border-gray-300 shadow-sm p-2"
                 />
                 <button
                   type="submit"
@@ -129,7 +154,7 @@ function Bookings() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {bookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50">
+                  <tr key={booking._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.food_entry.food_item}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.trust_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

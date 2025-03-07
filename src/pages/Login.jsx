@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext'; // Import Auth Context
 import UserService from '../service/auth.service';
 
 function Login() {
@@ -9,6 +10,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth(); // Access login function from Auth Context
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,10 +19,17 @@ function Login() {
 
     try {
       const response = await UserService.login({ email, password });
-      // Assuming the API returns a success message and user data
+
+      // Save token to localStorage
+      localStorage.setItem('token', response.token);
+
+      // Update auth context (Marks user as authenticated)
+      login(response.token);
+
       console.log('Login successful:', response);
-      // Redirect to the dashboard or home page after successful login
-      navigate('/dashboard'); // Change this to your desired route
+
+      // Redirect to Home after login
+      navigate('/');
     } catch (error) {
       setError(error.message || 'Login failed. Please try again.');
     } finally {
@@ -95,7 +104,9 @@ function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+                  loading ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
