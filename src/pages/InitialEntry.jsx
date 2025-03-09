@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Plus, Trash2 } from "lucide-react";
-import foodEntryService from "../service/foodEntryService"; // Import API service
+import { Plus, Trash2, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import foodEntryService from "../service/foodEntryService";
+import { fetchWeightFromESP, getMQTTClient } from "../Lib/esp8266"; // Import MQTT functions
+import axios from "axios";
 
+const API_BASE_URL = "http://localhost:5000/api/v1";
 const FOOD_ITEMS = [
   "Rice", "Pasta", "Chicken", "Beef", "Fish",
   "Salad", "Vegetables", "Fruit", "Bread", "Soup"
@@ -13,6 +16,24 @@ const InitialEntry = () => {
   const [mealType, setMealType] = useState("breakfast");
   const [foodItems, setFoodItems] = useState([{ food_item: FOOD_ITEMS[0], initial_weight: "" }]);
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [selectedItemIndex, setSelectedItemIndex] = useState(null);
+  const [mqttConnected, setMqttConnected] = useState(false);
+
+  useEffect(() => {
+    // Check MQTT connection status
+    const checkMqttConnection = () => {
+      const client = getMQTTClient();
+      setMqttConnected(client.isConnected());
+    };
+    
+    // Check immediately and then every 3 seconds
+    checkMqttConnection();
+    const intervalId = setInterval(checkMqttConnection, 3000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Add a new dish
   const handleAddDish = () => {
@@ -29,6 +50,62 @@ const InitialEntry = () => {
     const updatedItems = [...foodItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     setFoodItems(updatedItems);
+  };
+
+  // Fetch weight from sensor (similar to RemainingEntry)
+  const handleFetchWeight = async (index) => {
+    setIsFetching(true);
+    setSelectedItemIndex(index);
+    
+    try {
+      let weight;
+      
+      // Try MQTT first if connected
+      if (mqttConnected) {
+        console.log("Fetching weight from MQTT sensor...");
+        try {
+          weight = await fetchWeightFromESP();
+          console.log("Weight from MQTT:", weight);
+        } catch (mqttError) {
+          console.error("MQTT fetch failed:", mqttError);
+          throw mqttError; // Let the outer catch handle this
+        }
+      } else {
+        throw new Error("MQTT not connected");
+      }
+      
+      // If we got a valid weight, update the input field
+      if (weight !== null && typeof weight !== 'undefined') {
+        const updatedItems = [...foodItems];
+        updatedItems[index] = { ...updatedItems[index], initial_weight: weight };
+        setFoodItems(updatedItems);
+      } else {
+        throw new Error("Invalid weight data received from sensor");
+      }
+    } catch (error) {
+      console.error("Error fetching weight:", error);
+      
+      // Fallback to API
+      try {
+        console.log("Falling back to API for weight data...");
+        const response = await axios.get(`${API_BASE_URL}/food-entry/fetch-weight`);
+        console.log("API sensor weight response:", response);
+        
+        if (response.data && typeof response.data.weight !== 'undefined') {
+          const updatedItems = [...foodItems];
+          updatedItems[index] = { ...updatedItems[index], initial_weight: response.data.weight };
+          setFoodItems(updatedItems);
+        } else {
+          throw new Error("Invalid weight data received from sensor API");
+        }
+      } catch (fallbackError) {
+        console.error("Fallback error:", fallbackError);
+        alert(`Failed to fetch weight: ${error.message}. API fallback also failed.`);
+      }
+    } finally {
+      setIsFetching(false);
+      setSelectedItemIndex(null);
+    }
   };
 
   // Submit form
@@ -58,7 +135,22 @@ const InitialEntry = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg">
-      <h1 className="text-2xl font-bold mb-4">Initial Weight Entry</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Initial Weight Entry</h1>
+        
+        {/* MQTT connection status indicator */}
+        <div className="flex items-center">
+          {mqttConnected ? (
+            <Wifi className="h-5 w-5 text-green-500 mr-1" />
+          ) : (
+            <WifiOff className="h-5 w-5 text-red-500 mr-1" />
+          )}
+          <span className={`text-sm ${mqttConnected ? 'text-green-500' : 'text-red-500'}`}>
+            MQTT {mqttConnected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+      </div>
+      
       <form onSubmit={handleSubmit}>
         {/* Date Input */}
         <div className="mb-4">
@@ -101,14 +193,31 @@ const InitialEntry = () => {
               ))}
             </select>
 
-            <input
-              type="number"
-              value={entry.initial_weight}
-              onChange={(e) => handleEntryChange(index, "initial_weight", e.target.value)}
-              placeholder="Weight (kg)"
-              required
-              className="p-2 border rounded-md"
-            />
+            <div className="flex flex-1 gap-2">
+              <input
+                type="number"
+                value={entry.initial_weight}
+                onChange={(e) => handleEntryChange(index, "initial_weight", e.target.value)}
+                placeholder="Weight (kg)"
+                required
+                className="p-2 border rounded-md flex-1"
+                disabled={isFetching && selectedItemIndex === index}
+              />
+              
+              {/* Weight Fetch Button */}
+              <button
+                type="button"
+                onClick={() => handleFetchWeight(index)}
+                disabled={isFetching}
+                className={`px-3 py-2 text-white rounded-md flex items-center ${
+                  isFetching ? "bg-green-500 opacity-75" : "bg-green-600 hover:bg-green-700"
+                }`}
+                title={mqttConnected ? "Fetch weight from sensor" : "MQTT disconnected, will use API fallback"}
+              >
+                <RefreshCw className={`h-5 w-5 ${isFetching && selectedItemIndex === index ? "animate-spin" : ""}`} />
+                <span className="ml-1">Fetch</span>
+              </button>
+            </div>
 
             {foodItems.length > 1 && (
               <button

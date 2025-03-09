@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { BarChart, PieChart as PieChartIcon, ArrowUpDown, Download, Calendar } from 'lucide-react';
-import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays } from 'date-fns';
 import axios from 'axios';
+import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
+import { format, parseISO } from 'date-fns';
 
 // Utility functions
 const getConsumptionCategory = (wastePercentage) => {
@@ -29,7 +29,7 @@ const getRecommendations = (foodItem, wastePercentage) => {
   } else {
     return [
       `${foodItem} needs attention with ${wastePercentage.toFixed(1)}% waste`,
-      `Consider reducing preparation by ${Math.round(wastePercentage/2)}%`,
+      `Consider reducing preparation by ${Math.round(wastePercentage / 2)}%`,
       'Review recipe and presentation',
       'Survey customer preferences'
     ];
@@ -51,9 +51,9 @@ const FoodItemCard = ({ item }) => {
           </span>
         </div>
         <div className="text-right">
-          <p className="text-sm text-gray-600">Initial: {item.initial_weight} kg</p>
+          <p className="text-sm text-gray-600">Initial: {item.initial_weight.toFixed(1)} kg</p>
           <p className="text-sm text-gray-600">
-            Remaining: {item.remaining_weight} kg
+            Remaining: {item.remaining_weight.toFixed(1)} kg
           </p>
         </div>
       </div>
@@ -102,7 +102,6 @@ const RecommendationCard = ({ item }) => {
 };
 
 const SummaryStats = ({ analysis }) => {
-  // Calculate summary statistics
   const totalItems = analysis.length;
   const totalWaste = analysis.reduce((sum, item) => sum + item.waste_percentage, 0) / totalItems || 0;
   const highConsumptionItems = analysis.filter(item => item.waste_percentage <= 11).length;
@@ -130,52 +129,61 @@ function FoodAnalysis() {
   const [analysis, setAnalysis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [previousData, setPreviousData] = useState([]);
+  const [allEntries, setAllEntries] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     key: 'waste_percentage',
     direction: 'desc'
   });
 
-  // Fetch current date data
+  // Fetch all data once
   useEffect(() => {
-    fetchAnalysis();
-    fetchPreviousData();
-  }, [selectedDate]);
-
-  const fetchAnalysis = async () => {
-    try {
+    const fetchAllData = async () => {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/v1/food-entry?date=${selectedDate}`);
-      
-      if (!response.data) throw new Error('No data received');
+      try {
+        const response = await axios.get('http://localhost:5000/api/v1/food-entry');
+        console.log('API response for all data:', response);
+        
+        if (response.data && response.data.length > 0) {
+          setAllEntries(response.data);
+        } else {
+          setAllEntries([]);
+        }
+      } catch (error) {
+        console.error('Error fetching all data:', error);
+        alert('Failed to load data. Please try again.');
+        setAllEntries([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      // Process and aggregate data
-      const processedData = processEntries(response.data);
-      setAnalysis(processedData);
-    } catch (error) {
-      console.error('Error fetching analysis:', error);
-      alert('Error loading analysis. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchAllData();
+  }, []);
 
-  const fetchPreviousData = async () => {
-    try {
-      const previousDate = format(subDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
-      const response = await axios.get(`http://localhost:5000/api/v1/food-entry?date=${previousDate}`);
+  // Filter data by selected date whenever date changes or all entries update
+  useEffect(() => {
+    if (allEntries.length > 0) {
+      // Filter entries for the selected date only
+      const entriesForSelectedDate = allEntries.filter(entry => {
+        // Assuming entry.date is in format 'YYYY-MM-DD' or ISO format
+        const entryDate = entry.date.substring(0, 10); // Extract YYYY-MM-DD part
+        return entryDate === selectedDate;
+      });
       
-      if (!response.data) throw new Error('No data received');
+      console.log(`Filtered entries for ${selectedDate}:`, entriesForSelectedDate);
       
-      const processedData = processEntries(response.data);
-      setPreviousData(processedData);
-    } catch (error) {
-      console.error('Error fetching previous data:', error);
+      if (entriesForSelectedDate.length > 0) {
+        const processedData = processEntries(entriesForSelectedDate);
+        setAnalysis(processedData);
+      } else {
+        setAnalysis([]);
+      }
     }
-  };
+  }, [selectedDate, allEntries]);
 
   const processEntries = (entries) => {
-    // Group by food item
+    if (!entries || entries.length === 0) return [];
+    
     const groupedEntries = entries.reduce((acc, entry) => {
       if (!acc[entry.food_item]) {
         acc[entry.food_item] = {
@@ -187,11 +195,13 @@ function FoodAnalysis() {
       return acc;
     }, {});
 
-    // Calculate aggregated metrics
     return Object.values(groupedEntries).map(group => {
       const totalInitial = group.entries.reduce((sum, entry) => sum + entry.initial_weight, 0);
-      const totalRemaining = group.entries.reduce((sum, entry) => sum + entry.remaining_weight, 0);
-      const waste = (totalRemaining / totalInitial) * 100;
+      const totalRemaining = group.entries.reduce((sum, entry) => {
+        // Handle case where remaining_weight might be null
+        return sum + (entry.remaining_weight || 0);
+      }, 0);
+      const waste = totalInitial > 0 ? (totalRemaining / totalInitial) * 100 : 0;
       
       return {
         food_item: group.food_item,
@@ -199,13 +209,11 @@ function FoodAnalysis() {
         remaining_weight: totalRemaining,
         waste_percentage: waste,
         consumption_rate: 100 - waste,
-        frequency: group.entries.length,
-        total_waste: totalRemaining
+        frequency: group.entries.length
       };
     });
   };
 
-  // Sort the analysis data
   const sortedAnalysis = useMemo(() => {
     return [...analysis].sort((a, b) => {
       if (a[sortConfig.key] < b[sortConfig.key]) {
@@ -228,13 +236,14 @@ function FoodAnalysis() {
   const exportToCSV = () => {
     if (analysis.length === 0) return;
     
-    const headers = ['Food Item', 'Initial Weight (kg)', 'Remaining Weight (kg)', 'Waste %', 'Consumption %'];
+    const headers = ['Food Item', 'Initial Weight (kg)', 'Remaining Weight (kg)', 'Waste %', 'Consumption %', 'Frequency'];
     const rows = analysis.map(item => [
       item.food_item,
       item.initial_weight.toString(),
       item.remaining_weight.toString(),
       item.waste_percentage.toFixed(1),
-      item.consumption_rate.toFixed(1)
+      item.consumption_rate.toFixed(1),
+      item.frequency.toString()
     ]);
     
     const csvContent = [
@@ -252,7 +261,6 @@ function FoodAnalysis() {
     document.body.removeChild(link);
   };
 
-  // Prepare chart data
   const pieChartData = useMemo(() => {
     return analysis.map(item => ({
       name: item.food_item,
@@ -307,7 +315,11 @@ function FoodAnalysis() {
 
           {/* Content Section */}
           <div className="p-6">
-            {analysis.length > 0 && <SummaryStats analysis={analysis} />}
+            {analysis.length > 0 ? <SummaryStats analysis={analysis} /> : (
+              <div className="text-center text-gray-500 p-4 border rounded-lg">
+                No food entries found for {format(new Date(selectedDate), 'MMMM dd, yyyy')}
+              </div>
+            )}
 
             {/* Main Analytics Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -386,61 +398,6 @@ function FoodAnalysis() {
                 </div>
               )}
             </div>
-
-            {/* Comparison with Previous Day */}
-            {previousData.length > 0 && analysis.length > 0 && (
-              <div className="mt-10">
-                <h2 className="text-xl font-semibold mb-6 text-gray-800 border-b pb-2">Comparison with Previous Day</h2>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Food Item
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Current Waste %
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Previous Waste %
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Change
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {analysis.map((item, index) => {
-                        const prevItem = previousData.find(prev => prev.food_item === item.food_item);
-                        const change = prevItem ? item.waste_percentage - prevItem.waste_percentage : null;
-                        const changeColor = change === null ? 'text-gray-500' : change > 0 ? 'text-red-500' : 'text-green-500';
-                        
-                        return (
-                          <tr key={index}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {item.food_item}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.waste_percentage.toFixed(1)}%
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {prevItem ? prevItem.waste_percentage.toFixed(1) + '%' : 'N/A'}
-                            </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${changeColor}`}>
-                              {change !== null ? (
-                                <>
-                                  {change > 0 ? '+' : ''}{change.toFixed(1)}%
-                                </>
-                              ) : 'N/A'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

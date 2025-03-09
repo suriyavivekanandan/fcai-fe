@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Scale, AlertCircle, RefreshCw } from "lucide-react";
+import { Scale, AlertCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import axios from "axios";
-
+import { fetchWeightFromESP, getMQTTClient } from "../Lib/esp8266"; // Import MQTT functions
 
 const API_BASE_URL = "http://localhost:5000/api/v1";
 
@@ -13,9 +13,24 @@ const RemainingEntry = () => {
   const [updating, setUpdating] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
   const [selectedEntryId, setSelectedEntryId] = useState(null);
+  const [mqttConnected, setMqttConnected] = useState(false);
+  const [fetchedWeights, setFetchedWeights] = useState({});
 
   useEffect(() => {
     fetchEntries();
+    
+    // Check MQTT connection status
+    const checkMqttConnection = () => {
+      const client = getMQTTClient();
+      setMqttConnected(client.isConnected());
+    };
+    
+    // Check immediately and then every 3 seconds
+    checkMqttConnection();
+    const intervalId = setInterval(checkMqttConnection, 3000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchEntries = async () => {
@@ -64,6 +79,14 @@ const RemainingEntry = () => {
         remaining_weight: parseFloat(remainingWeight) 
       });
       console.log("Update response:", response);
+      
+      // Clear this entry from fetchedWeights after successful update
+      setFetchedWeights(prev => {
+        const updated = {...prev};
+        delete updated[id];
+        return updated;
+      });
+      
       await fetchEntries(); // Refresh the list after update
     } catch (error) {
       console.error("Error updating weight:", error);
@@ -76,20 +99,54 @@ const RemainingEntry = () => {
   const handleFetchWeight = async (entryId) => {
     setIsFetching(true);
     setSelectedEntryId(entryId);
+    
     try {
-      console.log("Fetching weight from sensor...");
-      // Use the correct endpoint
-      const response = await axios.get(`${API_BASE_URL}/food-entry/fetch-weight`);
-      console.log("Sensor weight response:", response);
+      let weight;
       
-      if (response.data && typeof response.data.weight !== 'undefined') {
-        await handleUpdateWeight(entryId, response.data.weight);
+      // Try MQTT first if connected
+      if (mqttConnected) {
+        console.log("Fetching weight from MQTT sensor...");
+        try {
+          weight = await fetchWeightFromESP();
+          console.log("Weight from MQTT:", weight);
+        } catch (mqttError) {
+          console.error("MQTT fetch failed:", mqttError);
+          throw mqttError; // Let the outer catch handle this
+        }
+      } else {
+        throw new Error("MQTT not connected");
+      }
+      
+      // If we got a valid weight, update the input field
+      if (weight !== null && typeof weight !== 'undefined') {
+        setFetchedWeights(prev => ({
+          ...prev,
+          [entryId]: weight
+        }));
       } else {
         throw new Error("Invalid weight data received from sensor");
       }
     } catch (error) {
       console.error("Error fetching weight:", error);
-      alert(`Failed to fetch weight: ${error.message || "Unknown error"}`);
+      
+      // Fallback to API
+      try {
+        console.log("Falling back to API for weight data...");
+        const response = await axios.get(`${API_BASE_URL}/food-entry/fetch-weight`);
+        console.log("API sensor weight response:", response);
+        
+        if (response.data && typeof response.data.weight !== 'undefined') {
+          setFetchedWeights(prev => ({
+            ...prev,
+            [entryId]: response.data.weight
+          }));
+        } else {
+          throw new Error("Invalid weight data received from sensor API");
+        }
+      } catch (fallbackError) {
+        console.error("Fallback error:", fallbackError);
+        alert(`Failed to fetch weight: ${error.message}. API fallback also failed.`);
+      }
     } finally {
       setIsFetching(false);
       setSelectedEntryId(null);
@@ -143,6 +200,18 @@ const RemainingEntry = () => {
         <div className="flex items-center">
           <Scale className="h-8 w-8 text-blue-600 mr-3" />
           <h1 className="text-2xl font-bold text-gray-900">Remaining Weight Entry</h1>
+          
+          {/* MQTT connection status indicator */}
+          <div className="ml-4 flex items-center">
+            {mqttConnected ? (
+              <Wifi className="h-5 w-5 text-green-500 mr-1" />
+            ) : (
+              <WifiOff className="h-5 w-5 text-red-500 mr-1" />
+            )}
+            <span className={`text-sm ${mqttConnected ? 'text-green-500' : 'text-red-500'}`}>
+              MQTT {mqttConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
         </div>
         <button
           onClick={fetchEntries}
@@ -180,6 +249,11 @@ const RemainingEntry = () => {
                   step="0.01"
                   min="0"
                   max={entry.initial_weight}
+                  value={fetchedWeights[entry._id] || ''}
+                  onChange={(e) => setFetchedWeights({
+                    ...fetchedWeights,
+                    [entry._id]: e.target.value
+                  })}
                   className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   placeholder="Enter remaining weight"
                   disabled={updating === entry._id || isFetching}
@@ -196,20 +270,21 @@ const RemainingEntry = () => {
                   className={`px-3 py-2 text-white rounded-md flex items-center ${
                     isFetching ? "bg-green-500 opacity-75" : "bg-green-600 hover:bg-green-700"
                   }`}
+                  title={mqttConnected ? "Fetch weight from sensor" : "MQTT disconnected, will use API fallback"}
                 >
                   <RefreshCw className={`h-5 w-5 ${isFetching && selectedEntryId === entry._id ? "animate-spin" : ""}`} />
                   <span className="ml-1">Fetch</span>
                 </button>
                 <button
-                  onClick={(e) => {
-                    const input = e.currentTarget.previousElementSibling?.previousElementSibling;
-                    if (input) {
-                      handleUpdateWeight(entry._id, parseFloat(input.value));
+                  onClick={() => {
+                    if (fetchedWeights[entry._id]) {
+                      handleUpdateWeight(entry._id, parseFloat(fetchedWeights[entry._id]));
                     }
                   }}
-                  disabled={updating === entry._id || isFetching}
+                  disabled={updating === entry._id || isFetching || !fetchedWeights[entry._id]}
                   className={`px-4 py-2 text-white font-medium rounded-md ${
-                    updating === entry._id ? "bg-blue-500 opacity-75" : "bg-blue-600 hover:bg-blue-700"
+                    updating === entry._id ? "bg-blue-500 opacity-75" : 
+                    !fetchedWeights[entry._id] ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
                   }`}
                 >
                   {updating === entry._id ? "Saving..." : "Save"}
