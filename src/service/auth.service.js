@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'https://fcai-be-1.onrender.com/api/auth/users'; 
+const API_URL = 'https://fcai-be-1.onrender.com/api/auth/users '
+; 
 
 const UserService = {
     register: async (userData) => {
