@@ -140,7 +140,7 @@ function FoodAnalysis() {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        const response = await axios.get('http://localhost:5000/api/v1/food-entry');
+        const response = await axios.get('https://fcai-be-1.onrender.com/api/v1/food-entry');
         console.log('API response for all data:', response);
         
         if (response.data && response.data.length > 0) {
@@ -279,11 +279,11 @@ function FoodAnalysis() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className="bg-gray-50 min-h-screen py-8 min-w-max my-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 my-55">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden my-55">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 my-40">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center">
                 <BarChart className="h-8 w-8 text-white mr-3" />

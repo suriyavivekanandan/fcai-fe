@@ -1,19 +1,21 @@
+// src/service/bookingService.js
 import axios from 'axios';
 
-const API_URL_FOOD = 'http://localhost:5000/api/v1/food-entry';
-const API_URL_BOOKING = 'http://localhost:5000/api/v1/booking'; // Fixed endpoint
+const API_URL_FOOD = 'https://fcai-be-1.onrender.com/api/v1/food-entry';
+const API_URL_BOOKING = 'https://fcai-be-1.onrender.com/api/v1/booking';
 
 const bookingService = {
-  // Get available food (with remaining weight > 0)
+  // ✅ Get only available (unbooked) food
   getAvailableFood: async () => {
     try {
-      const response = await axios.get(`${API_URL_FOOD}`); // Use the dedicated endpoint
+      const response = await axios.get(`${API_URL_FOOD}/available`);
       return response.data;
     } catch (error) {
       console.error('Error fetching available food:', error);
       throw error;
     }
   },
+  
 
   // Get all food entries
   getAllFood: async () => {
@@ -59,7 +61,7 @@ const bookingService = {
     }
   },
 
-  // Get a specific booking by ID
+  // Get booking by ID
   getBookingById: async (id) => {
     try {
       const response = await axios.get(`${API_URL_BOOKING}/${id}`);
