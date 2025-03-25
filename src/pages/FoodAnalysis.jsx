@@ -2,13 +2,13 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BarChart, PieChart as PieChartIcon, ArrowUpDown, Download, Calendar } from 'lucide-react';
 import axios from 'axios';
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 // Utility functions
 const getConsumptionCategory = (wastePercentage) => {
-  if (wastePercentage <= 11) return { category: 'High Consumption', color: '#22c55e' };
+  if (wastePercentage <= 11) return { category: 'High Consumption', color: '#16a34a' };
   if (wastePercentage <= 25) return { category: 'Medium Consumption', color: '#eab308' };
-  return { category: 'Low Consumption', color: '#ef4444' };
+  return { category: 'Low Consumption', color: '#dc2626' };
 };
 
 const getRecommendations = (foodItem, wastePercentage) => {
@@ -41,12 +41,17 @@ const FoodItemCard = ({ item }) => {
   const { category, color } = getConsumptionCategory(item.waste_percentage);
   
   return (
-    <div className="p-4 rounded-lg border bg-white shadow-sm hover:shadow-md transition-shadow">
+    <div className="p-4 rounded-xl border border-green-100 bg-white shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
         <div>
           <h3 className="font-semibold text-gray-900">{item.food_item}</h3>
-          <span className="text-sm font-medium px-2 py-0.5 rounded-full inline-block mt-1" 
-            style={{ backgroundColor: `${color}20`, color }}>
+          <span 
+            className="text-sm font-medium px-2 py-0.5 rounded-full inline-block mt-1" 
+            style={{ 
+              backgroundColor: `${color}20`, 
+              color: color 
+            }}
+          >
             {category}
           </span>
         </div>
@@ -82,17 +87,34 @@ const RecommendationCard = ({ item }) => {
   
   return (
     <div 
-      className="p-5 rounded-lg border transition-all hover:shadow-md"
-      style={{ backgroundColor: `${color}10`, borderColor: `${color}30` }}
+      className="p-5 rounded-xl border transition-all hover:shadow-md"
+      style={{ 
+        backgroundColor: `${color}10`, 
+        borderColor: `${color}30` 
+      }}
     >
-      <h3 className="font-medium text-lg mb-3 flex items-center" style={{ color }}>
-        <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: color }}></span>
+      <h3 
+        className="font-medium text-lg mb-3 flex items-center" 
+        style={{ color }}
+      >
+        <span 
+          className="w-2 h-2 rounded-full mr-2" 
+          style={{ backgroundColor: color }}
+        ></span>
         {item.food_item}
       </h3>
       <ul className="space-y-3">
         {recommendations.map((rec, idx) => (
-          <li key={idx} className="flex items-start text-gray-700">
-            <span className="mr-2 text-sm mt-1" style={{ color }}>•</span>
+          <li 
+            key={idx} 
+            className="flex items-start text-gray-700"
+          >
+            <span 
+              className="mr-2 text-sm mt-1" 
+              style={{ color }}
+            >
+              •
+            </span>
             <span className="text-sm">{rec}</span>
           </li>
         ))}
@@ -124,7 +146,6 @@ const SummaryStats = ({ analysis }) => {
   );
 };
 
-// Main component
 function FoodAnalysis() {
   const [analysis, setAnalysis] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,9 +161,7 @@ function FoodAnalysis() {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        const response = await axios.get('https://fcai-be-1.onrender.com/api/v1/food-entry');
-        console.log('API response for all data:', response);
-        
+        const response = await axios.get('http://localhost:5000/api/v1/food-entry');
         if (response.data && response.data.length > 0) {
           setAllEntries(response.data);
         } else {
@@ -163,14 +182,10 @@ function FoodAnalysis() {
   // Filter data by selected date whenever date changes or all entries update
   useEffect(() => {
     if (allEntries.length > 0) {
-      // Filter entries for the selected date only
       const entriesForSelectedDate = allEntries.filter(entry => {
-        // Assuming entry.date is in format 'YYYY-MM-DD' or ISO format
-        const entryDate = entry.date.substring(0, 10); // Extract YYYY-MM-DD part
+        const entryDate = entry.date.substring(0, 10);
         return entryDate === selectedDate;
       });
-      
-      console.log(`Filtered entries for ${selectedDate}:`, entriesForSelectedDate);
       
       if (entriesForSelectedDate.length > 0) {
         const processedData = processEntries(entriesForSelectedDate);
@@ -198,10 +213,9 @@ function FoodAnalysis() {
     return Object.values(groupedEntries).map(group => {
       const totalInitial = group.entries.reduce((sum, entry) => sum + entry.initial_weight, 0);
       const totalRemaining = group.entries.reduce((sum, entry) => {
-        // Handle case where remaining_weight might be null
         return sum + (entry.remaining_weight || 0);
       }, 0);
-      const waste = totalInitial > 0 ? (totalRemaining / totalInitial) * 100 : 0;
+      const waste = totalInitial > 0 ? ((totalInitial - totalRemaining) / totalInitial) * 100 : 0;
       
       return {
         food_item: group.food_item,
@@ -268,22 +282,22 @@ function FoodAnalysis() {
     }));
   }, [analysis]);
 
-  const COLORS = ['#22c55e', '#eab308', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
+  const COLORS = ['#16a34a', '#eab308', '#dc2626', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen py-8 min-w-max my-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 my-55">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden my-55">
+    <div className="bg-green-50 min-h-screen py-8 min-w-max">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 my-40">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center">
                 <BarChart className="h-8 w-8 text-white mr-3" />
@@ -298,7 +312,7 @@ function FoodAnalysis() {
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-1.5 bg-white text-gray-800 rounded-md focus:ring-2 focus:ring-white focus:outline-none"
+                    className="px-3 py-1.5 bg-white text-gray-800 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none"
                   />
                 </div>
                 <button 
@@ -326,7 +340,7 @@ function FoodAnalysis() {
               {/* Pie Chart Card */}
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center mb-4">
-                  <PieChartIcon className="h-6 w-6 text-blue-600 mr-2" />
+                  <PieChartIcon className="h-6 w-6 text-green-600 mr-2" />
                   <h2 className="text-lg font-semibold text-gray-800">Daily Waste Distribution</h2>
                 </div>
                 <div className="flex justify-center items-center h-[300px]">
@@ -363,7 +377,7 @@ function FoodAnalysis() {
                   <h2 className="text-lg font-semibold text-gray-800">Consumption Summary</h2>
                   <button 
                     onClick={() => handleSort('waste_percentage')}
-                    className="flex items-center text-sm text-gray-600 hover:text-blue-600"
+                    className="flex items-center text-sm text-gray-600 hover:text-green-600"
                   >
                     <ArrowUpDown className="h-4 w-4 mr-1" />
                     Sort by Waste
