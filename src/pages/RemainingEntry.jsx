@@ -273,7 +273,7 @@ const RemainingEntry = () => {
                   </div>
                   <div className="flex flex-col sm:flex-row items-end gap-2">
                     <span className="px-4 py-2 text-md font-medium text-green-700 bg-green-100 rounded-lg">
-                      Initial: {entry.initial_weight} kg
+                      Initial: {entry.initial_weight} gm
                     </span>
                     <button
                       onClick={() => handleDeleteEntry(entry._id)}
@@ -289,7 +289,7 @@ const RemainingEntry = () => {
                 </div>
 
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Remaining Weight (kg)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Remaining Weight (gm)</label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
@@ -311,7 +311,7 @@ const RemainingEntry = () => {
                           }
                         }}
                       />
-                      <div className="absolute right-3 top-3 text-gray-400 pointer-events-none">kg</div>
+                      <div className="absolute right-3 top-3 text-gray-400 pointer-events-none">gm</div>
                     </div>
                     <button
                       type="button"

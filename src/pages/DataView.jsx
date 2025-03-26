@@ -146,7 +146,7 @@ function DataView() {
   };
 
   const exportToCsv = () => {
-    const headers = ["Date", "Meal Type", "Food Item", "Initial Weight (kg)", "Remaining Weight", "Waste %"];
+    const headers = ["Date", "Meal Type", "Food Item", "Initial Weight (gm)", "Remaining Weight", "Waste %"];
     const csvData = filteredAndSortedEntries.map(entry => {
       const wastePercentage = getWastePercentage(entry);
       return [
@@ -352,7 +352,7 @@ function DataView() {
                 <p className="text-2xl font-bold text-green-600">
                   {filteredAndSortedEntries
                     .reduce((sum, entry) => sum + entry.initial_weight, 0)
-                    .toFixed(1)} kg
+                    .toFixed(1)} gm
                 </p>
               </div>
             </div>
@@ -414,9 +414,9 @@ function DataView() {
                           </span>
                         </td>
                         <td className="px-6 py-4">{entry.food_item}</td>
-                        <td className="px-6 py-4">{entry.initial_weight} kg</td>
+                        <td className="px-6 py-4">{entry.initial_weight} gm</td>
                         <td className="px-6 py-4">
-                          {entry.remaining_weight !== null ? `${entry.remaining_weight} kg` : "-"}
+                          {entry.remaining_weight !== null ? `${entry.remaining_weight} gm` : "-"}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 inline-flex text-sm font-medium rounded-full ${getWasteClass(wastePercentage)}`}>

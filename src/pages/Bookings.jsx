@@ -157,7 +157,7 @@ function Bookings() {
                         <h3 className="text-lg font-medium text-gray-900">{food.food_item}</h3>
                         <p className="text-gray-600">Meal: {food.meal_type}</p>
                         <p className="text-gray-500 text-sm">Date: {format(new Date(food.date), 'MMMM d, yyyy')}</p>
-                        <p className="text-green-600 font-medium">Remaining: {food.remaining_weight} kg</p>
+                        <p className="text-green-600 font-medium">Remaining: {food.remaining_weight} gm</p>
                       </div>
                     ))}
                   </div>

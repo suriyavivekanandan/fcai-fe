@@ -5,31 +5,31 @@ import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recha
 import { format } from 'date-fns';
 
 // Utility functions
-const getConsumptionCategory = (wastePercentage) => {
-  if (wastePercentage <= 11) return { category: 'High Consumption', color: '#16a34a' };
-  if (wastePercentage <= 25) return { category: 'Medium Consumption', color: '#eab308' };
+const getConsumptionCategory = (consumptionRate) => {
+  if (consumptionRate >= 89) return { category: 'High Consumption', color: '#16a34a' };
+  if (consumptionRate >= 75) return { category: 'Medium Consumption', color: '#eab308' };
   return { category: 'Low Consumption', color: '#dc2626' };
 };
 
-const getRecommendations = (foodItem, wastePercentage) => {
-  if (wastePercentage <= 11) {
+const getRecommendations = (foodItem, consumptionRate) => {
+  if (consumptionRate >= 89) {
     return [
-      `${foodItem} is being managed efficiently with ${wastePercentage.toFixed(1)}% waste`,
+      `${foodItem} is being managed efficiently with ${consumptionRate.toFixed(1)}% consumption`,
       'Maintain current portion sizes',
       'Document successful practices',
       'Consider expanding menu with similar items'
     ];
-  } else if (wastePercentage <= 25) {
+  } else if (consumptionRate >= 75) {
     return [
-      `${foodItem} shows moderate waste at ${wastePercentage.toFixed(1)}%`,
+      `${foodItem} shows moderate consumption at ${consumptionRate.toFixed(1)}%`,
       'Review portion sizes',
       'Monitor serving temperature',
       'Analyze peak consumption times'
     ];
   } else {
     return [
-      `${foodItem} needs attention with ${wastePercentage.toFixed(1)}% waste`,
-      `Consider reducing preparation by ${Math.round(wastePercentage / 2)}%`,
+      `${foodItem} needs attention with ${consumptionRate.toFixed(1)}% consumption`,
+      `Consider adjusting portion sizes`,
       'Review recipe and presentation',
       'Survey customer preferences'
     ];
@@ -38,7 +38,7 @@ const getRecommendations = (foodItem, wastePercentage) => {
 
 // Sub-components
 const FoodItemCard = ({ item }) => {
-  const { category, color } = getConsumptionCategory(item.waste_percentage);
+  const { category, color } = getConsumptionCategory(item.consumption_rate);
   
   return (
     <div className="p-4 rounded-xl border border-green-100 bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -56,22 +56,22 @@ const FoodItemCard = ({ item }) => {
           </span>
         </div>
         <div className="text-right">
-          <p className="text-sm text-gray-600">Initial: {item.initial_weight.toFixed(1)} kg</p>
+          <p className="text-sm text-gray-600">Initial: {item.initial_weight.toFixed(1)} gm</p>
           <p className="text-sm text-gray-600">
-            Remaining: {item.remaining_weight.toFixed(1)} kg
+            Remaining: {item.remaining_weight.toFixed(1)} gm
           </p>
         </div>
       </div>
       <div className="mt-2">
         <div className="flex justify-between text-sm mb-1">
-          <span className="font-medium text-gray-700">Waste Percentage</span>
-          <span className="font-bold" style={{ color }}>{item.waste_percentage.toFixed(1)}%</span>
+          <span className="font-medium text-gray-700">Consumption Rate</span>
+          <span className="font-bold" style={{ color }}>{item.consumption_rate.toFixed(1)}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
           <div
             className="h-2.5 rounded-full transition-all duration-500"
             style={{ 
-              width: `${item.waste_percentage}%`,
+              width: `${item.consumption_rate}%`,
               backgroundColor: color
             }}
           />
@@ -82,8 +82,8 @@ const FoodItemCard = ({ item }) => {
 };
 
 const RecommendationCard = ({ item }) => {
-  const { color } = getConsumptionCategory(item.waste_percentage);
-  const recommendations = getRecommendations(item.food_item, item.waste_percentage);
+  const { color } = getConsumptionCategory(item.consumption_rate);
+  const recommendations = getRecommendations(item.food_item, item.consumption_rate);
   
   return (
     <div 
@@ -125,14 +125,14 @@ const RecommendationCard = ({ item }) => {
 
 const SummaryStats = ({ analysis }) => {
   const totalItems = analysis.length;
-  const totalWaste = analysis.reduce((sum, item) => sum + item.waste_percentage, 0) / totalItems || 0;
-  const highConsumptionItems = analysis.filter(item => item.waste_percentage <= 11).length;
+  const avgConsumptionRate = analysis.reduce((sum, item) => sum + item.consumption_rate, 0) / totalItems || 0;
+  const highConsumptionItems = analysis.filter(item => item.consumption_rate >= 89).length;
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div className="bg-white p-4 rounded-lg border shadow-sm">
-        <p className="text-sm text-gray-500">Average Waste</p>
-        <p className="text-2xl font-bold text-gray-800">{totalWaste.toFixed(1)}%</p>
+        <p className="text-sm text-gray-500">Average Consumption</p>
+        <p className="text-2xl font-bold text-gray-800">{avgConsumptionRate.toFixed(1)}%</p>
       </div>
       <div className="bg-white p-4 rounded-lg border shadow-sm">
         <p className="text-sm text-gray-500">Total Items</p>
@@ -152,7 +152,7 @@ function FoodAnalysis() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [allEntries, setAllEntries] = useState([]);
   const [sortConfig, setSortConfig] = useState({
-    key: 'waste_percentage',
+    key: 'consumption_rate',
     direction: 'desc'
   });
 
@@ -184,7 +184,7 @@ function FoodAnalysis() {
     if (allEntries.length > 0) {
       const entriesForSelectedDate = allEntries.filter(entry => {
         const entryDate = entry.date.substring(0, 10);
-        return entryDate === selectedDate;
+        return entryDate === selectedDate && entry.remaining_weight !== null;
       });
       
       if (entriesForSelectedDate.length > 0) {
@@ -199,31 +199,44 @@ function FoodAnalysis() {
   const processEntries = (entries) => {
     if (!entries || entries.length === 0) return [];
     
-    const groupedEntries = entries.reduce((acc, entry) => {
+    const processedEntries = entries.map(entry => {
+      const initialWeight = entry.initial_weight;
+      const remainingWeight = entry.remaining_weight;
+      const consumptionRate = initialWeight > 0 
+        ? ((initialWeight - remainingWeight) / initialWeight) * 100 
+        : 0;
+      
+      return {
+        ...entry,
+        consumption_rate: consumptionRate,
+        waste_percentage: 100 - consumptionRate
+      };
+    });
+
+    // Group entries by food item
+    const groupedByFoodItem = processedEntries.reduce((acc, entry) => {
       if (!acc[entry.food_item]) {
-        acc[entry.food_item] = {
-          food_item: entry.food_item,
-          entries: []
-        };
+        acc[entry.food_item] = [];
       }
-      acc[entry.food_item].entries.push(entry);
+      acc[entry.food_item].push(entry);
       return acc;
     }, {});
 
-    return Object.values(groupedEntries).map(group => {
-      const totalInitial = group.entries.reduce((sum, entry) => sum + entry.initial_weight, 0);
-      const totalRemaining = group.entries.reduce((sum, entry) => {
-        return sum + (entry.remaining_weight || 0);
-      }, 0);
-      const waste = totalInitial > 0 ? ((totalInitial - totalRemaining) / totalInitial) * 100 : 0;
-      
+    // Aggregate entries by food item
+    return Object.entries(groupedByFoodItem).map(([foodItem, entries]) => {
+      const initialWeight = entries.reduce((sum, entry) => sum + entry.initial_weight, 0);
+      const remainingWeight = entries.reduce((sum, entry) => sum + entry.remaining_weight, 0);
+      const consumptionRate = initialWeight > 0 
+        ? ((initialWeight - remainingWeight) / initialWeight) * 100 
+        : 0;
+
       return {
-        food_item: group.food_item,
-        initial_weight: totalInitial,
-        remaining_weight: totalRemaining,
-        waste_percentage: waste,
-        consumption_rate: 100 - waste,
-        frequency: group.entries.length
+        food_item: foodItem,
+        initial_weight: initialWeight,
+        remaining_weight: remainingWeight,
+        consumption_rate: consumptionRate,
+        waste_percentage: 100 - consumptionRate,
+        frequency: entries.length
       };
     });
   };
@@ -250,13 +263,13 @@ function FoodAnalysis() {
   const exportToCSV = () => {
     if (analysis.length === 0) return;
     
-    const headers = ['Food Item', 'Initial Weight (kg)', 'Remaining Weight (kg)', 'Waste %', 'Consumption %', 'Frequency'];
+    const headers = ['Food Item', 'Initial Weight (gm)', 'Remaining Weight (gm)', 'Consumption %', 'Waste %', 'Frequency'];
     const rows = analysis.map(item => [
       item.food_item,
       item.initial_weight.toString(),
       item.remaining_weight.toString(),
-      item.waste_percentage.toFixed(1),
       item.consumption_rate.toFixed(1),
+      item.waste_percentage.toFixed(1),
       item.frequency.toString()
     ]);
     
@@ -269,7 +282,7 @@ function FoodAnalysis() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `food-waste-${selectedDate}.csv`);
+    link.setAttribute('download', `food-consumption-${selectedDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -278,7 +291,7 @@ function FoodAnalysis() {
   const pieChartData = useMemo(() => {
     return analysis.map(item => ({
       name: item.food_item,
-      value: item.waste_percentage
+      value: item.consumption_rate
     }));
   }, [analysis]);
 
@@ -293,15 +306,15 @@ function FoodAnalysis() {
   }
 
   return (
-    <div className="bg-green-50 min-h-screen py-8 min-w-max">
+    <div className="bg-green-50 min-h-screen py-8 min-w-max mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-green-500 to-green-600 p-6">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 ">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center">
                 <BarChart className="h-8 w-8 text-white mr-3" />
-                <h1 className="text-2xl font-bold text-white">Food Waste Analysis</h1>
+                <h1 className="text-2xl font-bold text-white">Food Consumption Analysis</h1>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="flex items-center bg-white/10 rounded-lg p-2">
@@ -341,7 +354,7 @@ function FoodAnalysis() {
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center mb-4">
                   <PieChartIcon className="h-6 w-6 text-green-600 mr-2" />
-                  <h2 className="text-lg font-semibold text-gray-800">Daily Waste Distribution</h2>
+                  <h2 className="text-lg font-semibold text-gray-800">Daily Consumption Distribution</h2>
                 </div>
                 <div className="flex justify-center items-center h-[300px]">
                   {pieChartData.length > 0 ? (
@@ -376,11 +389,11 @@ function FoodAnalysis() {
                 <div className="flex justify-between items-center px-1">
                   <h2 className="text-lg font-semibold text-gray-800">Consumption Summary</h2>
                   <button 
-                    onClick={() => handleSort('waste_percentage')}
+                    onClick={() => handleSort('consumption_rate')}
                     className="flex items-center text-sm text-gray-600 hover:text-green-600"
                   >
                     <ArrowUpDown className="h-4 w-4 mr-1" />
-                    Sort by Waste
+                    Sort by Consumption
                   </button>
                 </div>
                 <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2">
