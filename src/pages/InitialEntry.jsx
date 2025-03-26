@@ -8,7 +8,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import Navbar from "../components/Navbar";
 
-const API_BASE_URL = "http://localhost:5000/api/v1";
+const API_BASE_URL = "https://fcai-be.onrender.com/api/v1";
 const FOOD_ITEMS = [
   "Rice", "Pasta", "Chicken", "Beef", "Fish",
   "Salad", "Vegetables", "Fruit", "Bread", "Soup"

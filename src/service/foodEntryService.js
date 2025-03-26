@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api/v1/food-entry", // Backend URL
+  baseURL: "https://fcai-be.onrender.com/api/v1/food-entry", // Backend URL
   headers: { "Content-Type": "application/json" },
 });
 

@@ -1,8 +1,8 @@
 // src/service/bookingService.js
 import axios from 'axios';
 
-const API_URL_FOOD = 'http://localhost:5000/api/v1/food-entry';
-const API_URL_BOOKING = 'http://localhost:5000/api/v1/booking';
+const API_URL_FOOD = 'https://fcai-be.onrender.com/api/v1/food-entry';
+const API_URL_BOOKING = 'https://fcai-be.onrender.com/api/v1/booking';
 
 const bookingService = {
   // ✅ Get only available (unbooked) food

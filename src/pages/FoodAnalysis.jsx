@@ -161,7 +161,7 @@ function FoodAnalysis() {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        const response = await axios.get('http://localhost:5000/api/v1/food-entry');
+        const response = await axios.get('https://fcai-be.onrender.com/api/v1/food-entry');
         if (response.data && response.data.length > 0) {
           setAllEntries(response.data);
         } else {

@@ -25,7 +25,7 @@ function DataView() {
   const fetchEntries = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:5000/api/v1/food-entry");
+      const response = await fetch("https://fcai-be.onrender.com/api/v1/food-entry");
       if (!response.ok) throw new Error("Failed to fetch entries");
 
       const data = await response.json();
@@ -50,7 +50,7 @@ function DataView() {
     setDeleteLoading(id);
     try {
       const response = await fetch(
-        `http://localhost:5000/api/v1/food-entry/${id}`,
+        `https://fcai-be.onrender.com/api/v1/food-entry/${id}`,
         {
           method: "DELETE",
         }
@@ -92,7 +92,7 @@ function DataView() {
       setLoading(true);
       
       for (const id of selectedEntries) {
-        await fetch(`http://localhost:5000/api/v1/food-entry/${id}`, {
+        await fetch(`https://fcai-be.onrender.com/api/v1/food-entry/${id}`, {
           method: "DELETE",
         });
       }
