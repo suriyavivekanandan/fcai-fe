@@ -96,7 +96,7 @@ export default function Home() {
               <div className="absolute -inset-4 bg-green-200 rounded-2xl transform rotate-3"></div>
               <div className="absolute -inset-4 bg-green-300 rounded-2xl transform -rotate-3 opacity-70"></div>
               <div className="relative aspect-video rounded-xl overflow-hidden">
-                <img src="images\Food-loss-and-waste-in-India-new-1024x336.jpg" alt="Food waste reduction" className="w-full h-full object-cover" />
+                <img src="./images\Food-loss-and-waste-in-India-new-1024x336.jpg" alt="Food waste reduction" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>
